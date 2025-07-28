@@ -11,10 +11,29 @@ static dev_t dev_num;
 static struct class *dev_class;
 static struct cdev dev_cdev;
 
+static char *read_data = "Hello World from da kernel drivah";
+static char write_data[1024];
 static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
-  printk(KERN_INFO "xstrike: Yea I read it bdw!\n");
-  return 0;
+  uint64_t moved = copy_to_user(buf, read_data, strlen(read_data));
+  if (moved != 0) {
+    printk(KERN_INFO "xstrike: Could not write to the user\n");
+    return 0;
+  }
+
+  return count;
+}
+
+static ssize_t xstrike_write(struct file *file, const char __user *buf,
+                             size_t count, loff_t *f_pos) {
+
+  uint64_t moved = copy_from_user(&write_data, buf, count);
+  if (moved != 0) {
+    printk(KERN_INFO "xstrike: Could not read from the user\n");
+    return 0;
+  }
+  printk(KERN_INFO "xstrike: %s", write_data);
+  return count;
 }
 
 static int xstrike_open(struct inode *inode, struct file *file) { return 0; }
@@ -27,6 +46,7 @@ static int xstrike_release(struct inode *inode, struct file *file) {
 static const struct file_operations xstrike_fops = {
     .owner = THIS_MODULE,
     .read = xstrike_read,
+    .write = xstrike_write,
     .open = xstrike_open,
     .release = xstrike_release,
 };

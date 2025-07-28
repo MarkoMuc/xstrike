@@ -2,7 +2,7 @@
 
 KDIR_PATH=./denv/linux-6.15.8/
 make -C "$KDIR_PATH"  M=$(pwd) || exit 1;
-
+[ -n "$1" ] && exit 1
 rustc --target x86_64-unknown-linux-musl \
     -C target-cpu=generic \
     -C linker=rust-lld \
