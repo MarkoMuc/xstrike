@@ -45,9 +45,8 @@ static int __init xstrike_init(void) {
   dev_class = class_create(CLASS_NAME);
   if (IS_ERR(dev_class)) {
     ret = PTR_ERR(dev_class);
-    unregister_chrdev_region(dev_num, 1);
     printk(KERN_ALERT "xstrike: Failed to create device class: %d\n", ret);
-    return ret;
+    goto lregion;
   }
   printk(KERN_INFO "xstrike: Device class '%s' created.\n", CLASS_NAME);
 
@@ -56,24 +55,30 @@ static int __init xstrike_init(void) {
 
   ret = cdev_add(&dev_cdev, dev_num, 1);
   if (ret < 0) {
-    class_destroy(dev_class);
-    unregister_chrdev_region(dev_num, 1);
     printk(KERN_ALERT "xstrike: Failed to add cdev: %d\n", ret);
-    return ret;
+    goto lclass;
   }
   printk(KERN_INFO "xstrike: Cdev added.\n");
 
   if (IS_ERR(device_create(dev_class, NULL, dev_num, NULL, DRIVER_NAME))) {
     ret = PTR_ERR(device_create(dev_class, NULL, dev_num, NULL, DRIVER_NAME));
-    cdev_del(&dev_cdev);
-    class_destroy(dev_class);
-    unregister_chrdev_region(dev_num, 1);
     printk(KERN_ALERT "xstrike: Failed to create device in /dev/: %d\n", ret);
+    goto ldevice;
     return ret;
   }
   printk(KERN_INFO "xstrike: Device /dev/%s created.\n", DRIVER_NAME);
 
   printk(KERN_INFO "xstrike: Module loaded successfully.\n");
+  goto lsucc;
+ldevice:
+  device_destroy(dev_class, dev_num);
+  cdev_del(&dev_cdev);
+lclass:
+  class_destroy(dev_class);
+lregion:
+  unregister_chrdev_region(dev_num, 1);
+lsucc:
+
   return 0;
 }
 
