@@ -1,0 +1,12 @@
+*
+
+# Directories
+!denv
+!res
+
+# Files
+!xstrike.c
+!Makefile
+!move.sh
+!.gitignore
+!.clangd
