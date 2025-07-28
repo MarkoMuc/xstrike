@@ -69,7 +69,8 @@ static int __init xstrike_init(void) {
   printk(KERN_INFO "xstrike: Device /dev/%s created.\n", DRIVER_NAME);
 
   printk(KERN_INFO "xstrike: Module loaded successfully.\n");
-  goto lsucc;
+  return 0;
+
 ldevice:
   device_destroy(dev_class, dev_num);
   cdev_del(&dev_cdev);
@@ -77,9 +78,8 @@ lclass:
   class_destroy(dev_class);
 lregion:
   unregister_chrdev_region(dev_num, 1);
-lsucc:
 
-  return 0;
+  return ret;
 }
 
 static void __exit xstrike_exit(void) {
