@@ -6,6 +6,7 @@
 
 # Files
 !xstrike.c
+!test.rs
 !Makefile
 !build.sh
 !.gitignore
