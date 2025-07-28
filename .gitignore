@@ -7,7 +7,7 @@
 # Files
 !xstrike.c
 !Makefile
-!move.sh
+!build.sh
 !.gitignore
 !.clangd
 !README.md
