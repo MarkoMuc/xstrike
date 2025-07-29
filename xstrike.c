@@ -7,15 +7,29 @@
 #define DRIVER_NAME "xstrike"
 #define CLASS_NAME "xstrike_class"
 
+struct FileData {
+  uint64_t id;
+  char *str;
+  size_t count;
+  size_t size;
+};
+
 static dev_t dev_num;
 static struct class *dev_class;
 static struct cdev dev_cdev;
 
-static char *read_data = "Hello World from da kernel drivah";
-static char write_data[1024];
+#define START_SIZE 1024
+
+static ssize_t gen_id(void) {
+  static ssize_t id = 0;
+  return id++;
+}
+
 static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
-  uint64_t moved = copy_to_user(buf, read_data, strlen(read_data));
+  struct FileData *fdata = (struct FileData *)file->private_data;
+  uint64_t moved = copy_to_user(buf, fdata->str, count);
+
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not write to the user\n");
     return 0;
@@ -26,20 +40,37 @@ static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
 
 static ssize_t xstrike_write(struct file *file, const char __user *buf,
                              size_t count, loff_t *f_pos) {
+  struct FileData *fdata = (struct FileData *)file->private_data;
+  const uint64_t moved = copy_from_user(fdata->str + fdata->count, buf, count);
 
-  uint64_t moved = copy_from_user(&write_data, buf, count);
+  fdata->count += count;
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not read from the user\n");
     return 0;
   }
-  printk(KERN_INFO "xstrike: %s", write_data);
+
   return count;
 }
 
-static int xstrike_open(struct inode *inode, struct file *file) { return 0; }
+static int xstrike_open(struct inode *inode, struct file *file) {
+  file->private_data = kmalloc(sizeof(struct FileData), GFP_KERNEL);
+
+  struct FileData *fdata = file->private_data;
+  fdata->id = gen_id();
+  fdata->count = 0;
+  fdata->size = START_SIZE;
+  fdata->str = kmalloc(sizeof(char) * START_SIZE, GFP_KERNEL);
+
+  return 0;
+}
 
 static int xstrike_release(struct inode *inode, struct file *file) {
-  printk(KERN_INFO "xstrike: Device closed.\n");
+  const size_t id = ((struct FileData *)(file->private_data))->id;
+
+  kfree(((struct FileData *)(file->private_data))->str);
+  kfree(file->private_data);
+
+  printk(KERN_INFO "Closing input %lu", id);
   return 0;
 }
 
