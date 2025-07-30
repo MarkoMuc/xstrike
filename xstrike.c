@@ -1,17 +1,21 @@
+#include "xstrike_ioctl.h"
+
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/init.h>
+#include <linux/ioctl.h>
 #include <linux/module.h>
 
 #define DRIVER_NAME "xstrike"
 #define CLASS_NAME "xstrike_class"
 
 struct FileData {
-  uint64_t id;
-  char *str;
+  struct rgx_pattern pattern;
+  char *data;
   size_t count;
   size_t size;
+  uint64_t id;
 };
 
 static dev_t dev_num;
@@ -28,7 +32,7 @@ static ssize_t gen_id(void) {
 static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
-  uint64_t moved = copy_to_user(buf, fdata->str, count);
+  uint64_t moved = copy_to_user(buf, fdata->data, fdata->count);
 
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not write to the user\n");
@@ -41,7 +45,7 @@ static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
 static ssize_t xstrike_write(struct file *file, const char __user *buf,
                              size_t count, loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
-  const uint64_t moved = copy_from_user(fdata->str + fdata->count, buf, count);
+  const uint64_t moved = copy_from_user(fdata->data + fdata->count, buf, count);
 
   fdata->count += count;
   if (moved != 0) {
@@ -59,7 +63,7 @@ static int xstrike_open(struct inode *inode, struct file *file) {
   fdata->id = gen_id();
   fdata->count = 0;
   fdata->size = START_SIZE;
-  fdata->str = kmalloc(sizeof(char) * START_SIZE, GFP_KERNEL);
+  fdata->data = kmalloc(sizeof(char) * START_SIZE, GFP_KERNEL);
 
   return 0;
 }
@@ -67,20 +71,42 @@ static int xstrike_open(struct inode *inode, struct file *file) {
 static int xstrike_release(struct inode *inode, struct file *file) {
   const size_t id = ((struct FileData *)(file->private_data))->id;
 
-  kfree(((struct FileData *)(file->private_data))->str);
+  kfree(((struct FileData *)(file->private_data))->data);
   kfree(file->private_data);
 
   printk(KERN_INFO "Closing input %lu", id);
   return 0;
 }
 
-static const struct file_operations xstrike_fops = {
-    .owner = THIS_MODULE,
-    .read = xstrike_read,
-    .write = xstrike_write,
-    .open = xstrike_open,
-    .release = xstrike_release,
-};
+static long xstrike_ioctl(struct file *file, unsigned int cmd,
+                          unsigned long arg) {
+  if (cmd != XSTRIKE_SET) {
+    printk(KERN_WARNING "xstrike: Unknown ioctl command: 0x%x\n", cmd);
+    return -EINVAL;
+  }
+
+  long ret = 0;
+  struct rgx_pattern xstrike_arg = {0};
+  struct FileData *fdata = file->private_data;
+
+  const uint64_t moved =
+      copy_from_user(&xstrike_arg, (struct rgx_pattern __user *)arg,
+                     sizeof(struct rgx_pattern));
+  if (moved != 0) {
+    printk(KERN_INFO "xstrike: Could not read from the user during ioctl\n");
+    return 0;
+  }
+
+  return ret;
+}
+
+static const struct file_operations xstrike_fops = {.owner = THIS_MODULE,
+                                                    .read = xstrike_read,
+                                                    .write = xstrike_write,
+                                                    .open = xstrike_open,
+                                                    .release = xstrike_release,
+                                                    .unlocked_ioctl =
+                                                        xstrike_ioctl};
 
 static int __init xstrike_init(void) {
   int ret = alloc_chrdev_region(&dev_num, 0, 1, DRIVER_NAME);

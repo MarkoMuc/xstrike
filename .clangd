@@ -8,5 +8,4 @@ CompileFlags:
     - -D__KERNEL__
     - -DMODULE
     - -D__GPL__
-    - -std=gnu11
     - --target=x86_64-linux-musl
