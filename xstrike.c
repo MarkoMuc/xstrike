@@ -24,36 +24,78 @@ static struct cdev dev_cdev;
 
 #define START_SIZE 1024
 
-static ssize_t gen_id(void) {
-  static ssize_t id = 0;
+static size_t gen_id(void) {
+  static size_t id = 0;
   return id++;
 }
 
 static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
-  uint64_t moved = copy_to_user(buf, fdata->data, fdata->count);
+  const size_t bytes_to_copy = min(fdata->count - *f_pos, count);
+  const uint64_t moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
 
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not write to the user\n");
     return 0;
   }
 
-  return count;
+  *f_pos += bytes_to_copy;
+  return bytes_to_copy;
 }
 
 static ssize_t xstrike_write(struct file *file, const char __user *buf,
                              size_t count, loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
+
+  if (fdata->size - fdata->count < count) {
+    fdata->size += (count / fdata->size ? 0 : 1) * fdata->size;
+    krealloc_array(fdata->data, fdata->size, sizeof(char), GFP_KERNEL);
+  }
+
   const uint64_t moved = copy_from_user(fdata->data + fdata->count, buf, count);
 
-  fdata->count += count;
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not read from the user\n");
     return 0;
   }
 
+  fdata->count += count;
+  *f_pos += count;
+
   return count;
+}
+
+static loff_t xstrike_llseek(struct file *file, loff_t offset, int whence) {
+  struct FileData *fdata = (struct FileData *)file->private_data;
+  loff_t new_pos;
+
+  if (!fdata)
+    return -EINVAL;
+
+  switch (whence) {
+  case SEEK_SET:
+    new_pos = offset;
+    break;
+  case SEEK_CUR:
+    new_pos = *(&file->f_pos) + offset;
+    break;
+  case SEEK_END:
+    new_pos = fdata->count + offset;
+    break;
+  default:
+    return -EINVAL;
+  }
+
+  if (new_pos < 0 || new_pos > fdata->size) {
+    printk(KERN_WARNING "xstrike: llseek: Invalid seek position: %lld (data "
+                        "count: %zu, allocated size: %zu)\n",
+           new_pos, fdata->count, fdata->size);
+    return -EINVAL;
+  }
+
+  *(&file->f_pos) = new_pos;
+  return new_pos;
 }
 
 static int xstrike_open(struct inode *inode, struct file *file) {
@@ -97,6 +139,7 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
     return 0;
   }
 
+  fdata->pattern = xstrike_arg;
   return ret;
 }
 
@@ -106,7 +149,8 @@ static const struct file_operations xstrike_fops = {.owner = THIS_MODULE,
                                                     .open = xstrike_open,
                                                     .release = xstrike_release,
                                                     .unlocked_ioctl =
-                                                        xstrike_ioctl};
+                                                        xstrike_ioctl,
+                                                    .llseek = xstrike_llseek};
 
 static int __init xstrike_init(void) {
   int ret = alloc_chrdev_region(&dev_num, 0, 1, DRIVER_NAME);
