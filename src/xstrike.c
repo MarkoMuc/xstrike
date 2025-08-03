@@ -95,7 +95,7 @@ static int xstrike_open(struct inode *inode, struct file *file) {
 static int xstrike_release(struct inode *inode, struct file *file) {
   const size_t id = ((struct FileData *)(file->private_data))->id;
 
-  kfree(((struct FileData *)(file->private_data))->rules.pattern);
+  // kfree(((struct FileData *)(file->private_data))->rules.pattern);
   kfree(((struct FileData *)(file->private_data))->data);
   kfree(file->private_data);
 
