@@ -1,28 +1,4 @@
-#include "xstrike_ioctl.h"
-
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/fs.h>
-#include <linux/init.h>
-#include <linux/ioctl.h>
-#include <linux/module.h>
-
-#define DRIVER_NAME "xstrike"
-#define CLASS_NAME "xstrike_class"
-
-struct FileData {
-  struct rgx_pattern pattern;
-  char *data;
-  size_t count;
-  size_t size;
-  uint64_t id;
-};
-
-static dev_t dev_num;
-static struct class *dev_class;
-static struct cdev dev_cdev;
-
-#define START_SIZE 1024
+#include "xstrike.h"
 
 static size_t gen_id(void) {
   static size_t id = 0;
@@ -33,7 +9,7 @@ static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
   const size_t bytes_to_copy = min(fdata->count - *f_pos, count);
-  const uint64_t moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
+  const u64 moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
 
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not write to the user\n");
@@ -53,7 +29,7 @@ static ssize_t xstrike_write(struct file *file, const char __user *buf,
     krealloc_array(fdata->data, fdata->size, sizeof(char), GFP_KERNEL);
   }
 
-  const uint64_t moved = copy_from_user(fdata->data + fdata->count, buf, count);
+  const u64 moved = copy_from_user(fdata->data + fdata->count, buf, count);
 
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not read from the user\n");
@@ -113,6 +89,7 @@ static int xstrike_open(struct inode *inode, struct file *file) {
 static int xstrike_release(struct inode *inode, struct file *file) {
   const size_t id = ((struct FileData *)(file->private_data))->id;
 
+  kfree(((struct FileData *)(file->private_data))->pattern.pattern);
   kfree(((struct FileData *)(file->private_data))->data);
   kfree(file->private_data);
 
@@ -131,7 +108,7 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
   struct rgx_pattern xstrike_arg = {0};
   struct FileData *fdata = file->private_data;
 
-  const uint64_t moved =
+  const u64 moved =
       copy_from_user(&xstrike_arg, (struct rgx_pattern __user *)arg,
                      sizeof(struct rgx_pattern));
   if (moved != 0) {

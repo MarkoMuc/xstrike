@@ -1,5 +1,4 @@
 obj-m  := xstrike.o
 
 clean:
-	rm -f xstrike.ko xstrike.mod* xstrike.o modules.order Module.symvers .Module* .xstrike* .module* ..module*
-	rm ./tests/test-dev
+	rm -f xstrike.ko xstrike.mod* xstrike.o modules.order Module.symvers .Module* .xstrike* .module* ..module* ./tests/test-dev

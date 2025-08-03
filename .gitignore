@@ -3,10 +3,13 @@
 # Directories
 !denv
 !res
+!src
 
 # Files
 !xstrike.c
+!xstrike.h
 !xstrike_ioctl.h
+!src/**
 !test.rs
 !test.c
 !Makefile

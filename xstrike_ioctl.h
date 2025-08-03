@@ -1,3 +1,6 @@
+#ifndef __XSTRIKE_IOCTL
+#define __XSTRIKE_IOCTL
+
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
@@ -8,3 +11,5 @@ struct rgx_pattern {
 
 #define XSTRIKE_MAGIC_NUM 'k'
 #define XSTRIKE_SET _IOW(XSTRIKE_MAGIC_NUM, 0, struct rgx_pattern)
+
+#endif
