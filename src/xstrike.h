@@ -1,7 +1,7 @@
 #ifndef __XSTRIKE_HEADER
 #define __XSTRIKE_HEADER
 
-#include "./src/regex.h"
+#include "regex.h"
 #include "xstrike_ioctl.h"
 #include "xstrike_types.h"
 

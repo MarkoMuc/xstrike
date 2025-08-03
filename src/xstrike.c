@@ -8,6 +8,10 @@ static size_t gen_id(void) {
 static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
+  if (fdata->processed == false) {
+    fdata->processed = true;
+  }
+
   const size_t bytes_to_copy = min(fdata->count - *f_pos, count);
   const u64 moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
 
@@ -81,6 +85,7 @@ static int xstrike_open(struct inode *inode, struct file *file) {
   struct FileData *fdata = file->private_data;
   fdata->id = gen_id();
   fdata->count = 0;
+  fdata->processed = false;
   fdata->size = START_SIZE;
   fdata->data = kmalloc(sizeof(char) * START_SIZE, GFP_KERNEL);
 
@@ -105,7 +110,7 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
     return -EINVAL;
   }
 
-  long ret = 0;
+  u64 ret = 0;
   struct rgx_pattern xstrike_arg = {0};
   struct FileData *fdata = file->private_data;
 
@@ -116,6 +121,8 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
     printk(KERN_INFO "xstrike: Could not read from the user during ioctl\n");
     return 0;
   }
+
+  ret = xstrike_regex_builder(&xstrike_arg);
 
   fdata->pattern = xstrike_arg;
   return ret;

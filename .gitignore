@@ -4,14 +4,17 @@
 !denv
 !res
 !src
+!tests
 
 # Files
-!xstrike.c
-!xstrike.h
-!xstrike_ioctl.h
-!src/**
-!test.rs
-!test.c
+!src/xstrike.c
+!src/xstrike.h
+!src/xstrike_ioctl.h
+!src/xstrike_types.h
+!src/regex.h
+!src/regex.c
+!tests/test.rs
+!tests/test.c
 !Makefile
 !build.sh
 !.gitignore
