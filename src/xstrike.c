@@ -122,7 +122,7 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
     return 0;
   }
 
-  // ret = xstrike_regex_builder(&xstrike_arg);
+  ret = xstrike_regex_builder(&xstrike_arg);
 
   fdata->rules = xstrike_arg;
   return ret;
