@@ -1,0 +1,9 @@
+CompileFlags:
+  Add:
+    - -std=gnu11
+    - -I../denv/linux-6.15.8/include/
+    - -I../denv/linux-6.15.8/arch/x86/include
+    - -I../denv/linux-6.15.8/arch/x86/include/generated
+    - -I../denv/linux-6.15.8/include/generated
+    - -I.
+    - --target=x86_64-linux-musl

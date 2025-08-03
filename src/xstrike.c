@@ -8,9 +8,9 @@ static size_t gen_id(void) {
 static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
                             loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
-  if (fdata->processed == false) {
-    fdata->processed = true;
-  }
+  // if (fdata->processed == false) {
+  //   fdata->processed = true;
+  // }
 
   const size_t bytes_to_copy = min(fdata->count - *f_pos, count);
   const u64 moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
@@ -42,7 +42,7 @@ static ssize_t xstrike_write(struct file *file, const char __user *buf,
   }
 
   fdata->count += count;
-  *f_pos += count;
+  // *f_pos += count;
 
   return count;
 }
@@ -95,7 +95,7 @@ static int xstrike_open(struct inode *inode, struct file *file) {
 static int xstrike_release(struct inode *inode, struct file *file) {
   const size_t id = ((struct FileData *)(file->private_data))->id;
 
-  kfree(((struct FileData *)(file->private_data))->pattern.pattern);
+  kfree(((struct FileData *)(file->private_data))->rules.pattern);
   kfree(((struct FileData *)(file->private_data))->data);
   kfree(file->private_data);
 
@@ -122,9 +122,9 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
     return 0;
   }
 
-  ret = xstrike_regex_builder(&xstrike_arg);
+  // ret = xstrike_regex_builder(&xstrike_arg);
 
-  fdata->pattern = xstrike_arg;
+  fdata->rules = xstrike_arg;
   return ret;
 }
 

@@ -6,7 +6,9 @@ all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	rm -f ./tests/test-dev
+	rustfmt tests/test.rs
+	rm -f xstrike.mod .xstrike.mod.cmd xstrike.mod.c xstrike.mod.o .xstrike.mod.o.cmd .module-common.o ..module-common.o.cmd xstrike.o .xstrike.o.cmd .modules.order.cmd modules.order .Module.symvers.cmd Module.symvers .xstrike.ko.cmd xstrike.ko
+	cd src
+	rm -f srcxstrike.mod .xstrike.mod.cmd xstrike.mod.c xstrike.mod.o .xstrike.mod.o.cmd .module-common.o ..module-common.o.cmd xstrike.o .xstrike.o.cmd .modules.order.cmd modules.order .Module.symvers.cmd Module.symvers .xstrike.ko.cmd xstrike.ko
 
 .PHONY: all clean

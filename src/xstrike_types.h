@@ -1,11 +1,12 @@
 #ifndef __XSTRIKE_TYPES
 #define __XSTRIKE_TYPES
 
-#include "linux/types.h"
-#include "regex.h"
+#include "xstrike_ioctl.h"
+#include <linux/stddef.h>
+#include <linux/types.h>
 
 struct FileData {
-  struct rgx_pattern pattern;
+  struct rgx_pattern rules;
   char *data;
   size_t count;
   size_t size;

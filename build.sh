@@ -7,16 +7,16 @@ make -C "$KDIR_PATH"  M=$(pwd) || exit 1;
 
 $MUSL_GCC -static -o ./tests/test-dev ./tests/test.c || exit 1;
 
-# rustfmt test.rs || exit 1;
-# rustc --target x86_64-unknown-linux-musl \
-#     -C target-cpu=generic \
-#     -C linker=rust-lld \
-#     -C link-self-contained=yes \
-#     ./tests/test.rs -o ./tests/test-dev || exit 1;
+ rustc --target x86_64-unknown-linux-musl \
+     -C target-cpu=generic \
+     -C linker=rust-lld \
+     -C link-self-contained=yes \
+     ./tests/test.rs -o ./tests/rtest-dev || exit 1;
 
 [ -n "$1" ] && exit 1;
 
 cp ./tests/test-dev ./denv/ramdisk/bin 
+cp ./tests/rtest-dev ./denv/ramdisk/bin 
 
 cp xstrike.ko ./denv/ramdisk/
 pushd ./denv/ramdisk/

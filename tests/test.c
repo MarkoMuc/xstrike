@@ -15,6 +15,7 @@ int main(void) {
   write(fd, text, sizeof(text) / sizeof(char));
 
   lseek(fd, SEEK_SET, 0);
+
   char result[10240];
   read(fd, result, 10240);
 
