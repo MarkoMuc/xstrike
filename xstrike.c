@@ -25,7 +25,8 @@ static ssize_t xstrike_write(struct file *file, const char __user *buf,
   struct FileData *fdata = (struct FileData *)file->private_data;
 
   if (fdata->size - fdata->count < count) {
-    fdata->size += (count / fdata->size ? 0 : 1) * fdata->size;
+    u64 frac = count / fdata->size;
+    fdata->size += (frac > 0 ? frac : 1) * fdata->size;
     krealloc_array(fdata->data, fdata->size, sizeof(char), GFP_KERNEL);
   }
 
