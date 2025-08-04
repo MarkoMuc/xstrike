@@ -11,11 +11,12 @@
 #define RGX_NODE_START_SIZE 8
 
 enum rgx_type {
-  RGX_TYPE_SEQ = 0,     // Sequence
-  RGX_TYPE_COND = 1,    // |
-  RGX_TYPE_CHARSET = 2, // [ ]
-  RGX_TYPE_GROUP = 3,   // ( )
-  RGX_TYPE_LITERAL = 4  // " " or str in context
+  RGX_TYPE_SEQ = 0,         // Sequence
+  RGX_TYPE_COND = 1,        // |
+  RGX_TYPE_CHARSET = 2,     // [ ]
+  RGX_TYPE_GROUP = 3,       // ( )
+  RGX_TYPE_LITERAL = 4,     // " " or str
+  RGX_TYPE_SPEC_LITERAL = 5 // " " or str in context
 };
 
 enum rgx_quantifiers {
@@ -58,6 +59,7 @@ xstrike_err_t rgx_node_array_init(rgx_node_array *arr);
 xstrike_err_t rgx_node_array_add(rgx_node_array *arr, rgx_node *node);
 rgx_node *rgx_node_array_pop(rgx_node_array *arr);
 xstrike_err_t rgx_node_array_free(rgx_node_array *arr);
+bool rgx_node_replace_father(rgx_node *node);
 
 xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg);
 #endif

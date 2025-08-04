@@ -11,7 +11,7 @@ int main(void) {
   struct rgx_pattern arg = {.pattern = array, .len = sizeof(array)};
   ioctl(fd, XSTRIKE_SET, &arg);
 
-  char text[] = "Lore Ipsum\n";
+  char text[] = "(\"start\" | str[abc]*\"str\")+\n";
   write(fd, text, sizeof(text) / sizeof(char));
 
   lseek(fd, SEEK_SET, 0);
