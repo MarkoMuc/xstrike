@@ -6,6 +6,5 @@ gdb -ex "add-auto-load-safe-path $KPATH/scripts/gdb/vmlinux-gdb.py" \
     -ex "source $KPATH/vmlinux-gdb.py" \
     -ex "target remote :1234" \
     -ex "lx-symbols"\
-    -ex "b xstrike_regex_builder"\
     -ex "c" \
     $KPATH/vmlinux

@@ -3,6 +3,18 @@
 // TODO: how do I handle end of string situations?
 // maybe remove [ ] or "? rgx_node_add_quant works like that already
 
+static bool rgx_is_rule(const char c) {
+  switch (c) {
+  case '(':
+  case '|':
+  case '[':
+  case '\"':
+    return true;
+  default:
+    return false;
+  }
+}
+
 static void rgx_node_add_quant(const char *pstr, rgx_node *rnode, u64 len,
                                u64 *idx) {
   u64 i = *idx;
@@ -10,6 +22,7 @@ static void rgx_node_add_quant(const char *pstr, rgx_node *rnode, u64 len,
     const enum rgx_quantifiers quant = rgx_node_check_quant(pstr[i + 1]);
 
     if (quant != RGX_QUANT_NONE) {
+      // printk(KERN_INFO "%c", pstr[i + 1]);
       rnode->quant = quant;
       i++;
     }
@@ -18,28 +31,33 @@ static void rgx_node_add_quant(const char *pstr, rgx_node *rnode, u64 len,
   }
 }
 
-static void rgx_node_check_and_replace(rgx_node *rnode) {
-  if (rgx_node_replace_father(rnode)) {
+void rgx_node_check_and_replace(rgx_node **rnode) {
+  if (rgx_node_replace_father(*rnode)) {
     rgx_node *new_fnode = rgx_node_init();
     new_fnode->type = RGX_TYPE_SEQ;
     rgx_node_array_init(&new_fnode->body);
 
-    rgx_node_array_add(&rnode->body, new_fnode);
-    new_fnode->father = rnode;
-    rnode = new_fnode;
+    rgx_node *old_node = rgx_node_array_pop(&(*rnode)->body);
+    rgx_node_array_add(&(*rnode)->body, new_fnode);
+    new_fnode->father = *rnode;
+
+    old_node->father = new_fnode;
+    rgx_node_array_add(&new_fnode->body, old_node);
+
+    *rnode = new_fnode;
   }
 }
 
 bool rgx_node_replace_father(rgx_node *node) {
-  if (!node->father) {
+  if (!node) {
     return false;
   }
 
-  if (node->father->type != RGX_TYPE_COND ||
-      node->father->type != RGX_TYPE_SEQ ||
-      node->father->type != RGX_TYPE_GROUP) {
+  if (node->type == RGX_TYPE_COND && node->body.len >= 2) {
     return true;
   }
+
+  return false;
 }
 
 enum rgx_quantifiers rgx_node_check_quant(const char c) {
@@ -79,7 +97,7 @@ rgx_node *rgx_node_array_pop(rgx_node_array *arr) {
     return NULL;
   }
 
-  return arr->items[arr->len--];
+  return arr->items[--arr->len];
 }
 
 xstrike_err_t rgx_node_array_add(rgx_node_array *arr, rgx_node *node) {
@@ -156,9 +174,13 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
 
   rgx_node_array_init(&head->body);
 
-  while (i < len) {
-    slen++;
+  while (i < len && pstr[i] != '\0') {
     const char c = pstr[i];
+    if (i > 0) {
+      prev = pstr[i - 1];
+    }
+
+    slen++;
     escaped = false;
 
     if (prev == '\\' && c != '\\') {
@@ -169,6 +191,7 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
     switch (rnode->type) {
     case RGX_TYPE_LITERAL: {
       if (c == '\"') {
+        // printk(KERN_INFO "\"");
         rnode->len = slen;
         rgx_node_add_quant(pstr, rnode, len, &i);
         rnode = rnode->father;
@@ -179,7 +202,20 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
     }
 
     case RGX_TYPE_SPEC_LITERAL: {
-      if (c == '\"') {
+      if (rgx_is_rule(c)) {
+        rnode->len = slen;
+        rgx_node_add_quant(pstr, rnode, len, &i);
+        rnode = rnode->father;
+        continue;
+      }
+
+      i++;
+      continue;
+    }
+
+    case RGX_TYPE_CHARSET: {
+      if (c == ']') {
+        // printk(KERN_INFO "]");
         rnode->len = slen;
         rgx_node_add_quant(pstr, rnode, len, &i);
         rnode = rnode->father;
@@ -188,24 +224,24 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
       i++;
       continue;
     }
-    case RGX_TYPE_CHARSET: {
-      if (c == ']') {
-        rnode->len = slen;
-        rgx_node_add_quant(pstr, rnode, len, &i);
-        rnode = rnode->father;
-      }
 
-      i++;
-      continue;
+    case RGX_TYPE_SEQ: {
+      if (c == ')') {
+        while (rnode->father && rnode->type != RGX_TYPE_GROUP) {
+          rnode = rnode->father;
+        }
+        continue;
+      }
+      break;
     }
     case RGX_TYPE_GROUP: {
       if (c == ')') {
+        // printk(KERN_INFO ")");
         rgx_node_add_quant(pstr, rnode, len, &i);
         rnode = rnode->father;
+        i++;
+        continue;
       }
-
-      i++;
-      continue;
     }
 
     default:
@@ -213,7 +249,8 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
     }
 
     if (c == '[') {
-      rgx_node_check_and_replace(rnode);
+      // printk(KERN_INFO "[");
+      rgx_node_check_and_replace(&rnode);
       rgx_node *new_node = rgx_node_init();
       new_node->type = RGX_TYPE_CHARSET;
       new_node->str = &pstr[i];
@@ -224,6 +261,8 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
 
       slen = 0;
     } else if (c == '(') {
+      // printk(KERN_INFO "(");
+      rgx_node_check_and_replace(&rnode);
       rgx_node *new_node = rgx_node_init();
       new_node->type = RGX_TYPE_GROUP;
       rgx_node_array_init(&new_node->body);
@@ -233,6 +272,7 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
       rnode = new_node;
 
     } else if (c == '|') {
+      // printk(KERN_INFO "|");
       rgx_node *new_node = rgx_node_init();
       new_node->type = RGX_TYPE_COND;
       rgx_node_array_init(&new_node->body);
@@ -258,6 +298,8 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
       new_node->father = rnode;
       rnode = new_node;
     } else if (c == '\"') {
+      // printk(KERN_INFO "\"");
+      rgx_node_check_and_replace(&rnode);
       rgx_node *new_node = rgx_node_init();
       new_node->type = RGX_TYPE_LITERAL;
       new_node->str = &pstr[i];
@@ -266,7 +308,9 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
       new_node->father = rnode;
       rnode = new_node;
       slen = 0;
-    } else {
+    } else if (c != ' ' && c != '\t') {
+      // printk(KERN_INFO "-");
+      rgx_node_check_and_replace(&rnode);
       rgx_node *new_node = rgx_node_init();
       new_node->type = RGX_TYPE_SPEC_LITERAL;
       new_node->str = &pstr[i];
@@ -277,7 +321,6 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
       slen = 0;
     }
 
-    prev = c;
     i++;
   }
 
@@ -285,5 +328,6 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
     printk(KERN_INFO "Failure due to an unclosed conditional.");
     return XSTRIKE_ERR_INVALID_RGX;
   }
+
   return XSTRIKE_SUCC;
 }

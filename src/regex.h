@@ -60,6 +60,7 @@ xstrike_err_t rgx_node_array_add(rgx_node_array *arr, rgx_node *node);
 rgx_node *rgx_node_array_pop(rgx_node_array *arr);
 xstrike_err_t rgx_node_array_free(rgx_node_array *arr);
 bool rgx_node_replace_father(rgx_node *node);
+void rgx_node_check_and_replace(rgx_node **rnode);
 
 xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg);
 #endif

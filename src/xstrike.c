@@ -123,7 +123,10 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
   }
 
   ret = xstrike_regex_builder(&xstrike_arg);
-
+  if (ret != XSTRIKE_SUCC) {
+    printk(KERN_INFO "xstrike: pattern is not valid.\n");
+    return ret;
+  }
   fdata->rules = xstrike_arg;
   return ret;
 }

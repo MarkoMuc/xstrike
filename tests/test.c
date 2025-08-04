@@ -7,11 +7,12 @@
 int main(void) {
   int fd = open("/dev/xstrike", O_RDWR);
 
-  char array[] = "hello xstrike\n";
+  char array[] = "(\"start\" | str[abc]*\"str\")+";
   struct rgx_pattern arg = {.pattern = array, .len = sizeof(array)};
+
   ioctl(fd, XSTRIKE_SET, &arg);
 
-  char text[] = "(\"start\" | str[abc]*\"str\")+\n";
+  char text[] = "start off with str not strastr\n";
   write(fd, text, sizeof(text) / sizeof(char));
 
   lseek(fd, SEEK_SET, 0);
@@ -19,6 +20,6 @@ int main(void) {
   char result[10240];
   read(fd, result, 10240);
 
-  printf("%s", result);
+  // printf("%s", result);
   return 0;
 }

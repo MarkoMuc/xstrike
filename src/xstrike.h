@@ -10,6 +10,7 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/ioctl.h>
+#include <linux/math.h>
 #include <linux/module.h>
 
 #define DRIVER_NAME "xstrike"
