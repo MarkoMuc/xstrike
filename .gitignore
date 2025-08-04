@@ -15,8 +15,11 @@
 !src/regex.c
 !tests/test.rs
 !tests/test.c
+!denv/gdb.patch
+!denv/init
 !Makefile
 !build.sh
+!debug.sh
 !.gitignore
 !.clangd
 !README.md

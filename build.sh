@@ -19,11 +19,13 @@ cp ./tests/test-dev ./denv/ramdisk/bin
 cp ./tests/rtest-dev ./denv/ramdisk/bin 
 
 cp xstrike.ko ./denv/ramdisk/
+cp ./denv/init ./denv/ramdisk
 pushd ./denv/ramdisk/
 find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../ramdisk.cpio.gz
 popd
 qemu-system-x86_64 \
+     -s -S \
      -kernel ./denv/linux-6.15.8/arch/x86/boot/bzImage \
      -nographic \
      -append 'console=ttyS0 loglevel=15' \
-     -initrd ./denv/ramdisk.cpio.gz
+     -initrd ./denv/ramdisk.cpio.gz \

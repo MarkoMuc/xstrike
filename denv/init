@@ -1,0 +1,8 @@
+#!/bin/sh
+
+mkdir /debug /proc /sys
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+
+exec /bin/sh -c "insmod xstrike.ko; /bin/sh;"

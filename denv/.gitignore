@@ -1,4 +1,5 @@
 *
 !developer_environment.md
 !.gitignore
-!.init
+!init
+!gdb.patch
