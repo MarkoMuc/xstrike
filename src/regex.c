@@ -2,6 +2,13 @@
 
 // TODO: how do I handle end of string situations?
 // maybe remove [ ] or "? rgx_node_add_quant works like that already
+// Illegal pattern
+
+static inline bool rgx_quant_rules(const enum rgx_quantifiers q, const bool res,
+                                   const bool p) {
+  return (q == RGX_QUANT_NONE && res) || (q == RGX_QUANT_PLUS && p) ||
+         (q == RGX_QUANT_STAR) || (q == RGX_QUANT_QUES);
+}
 
 static bool rgx_is_rule(const char c) {
   switch (c) {
@@ -58,106 +65,6 @@ bool rgx_node_replace_father(rgx_node *node) {
   }
 
   return false;
-}
-
-enum rgx_quantifiers rgx_node_check_quant(const char c) {
-  switch (c) {
-  case '+':
-    return RGX_QUANT_PLUS;
-  case '*':
-    return RGX_QUANT_STAR;
-  case '?':
-    return RGX_QUANT_QUES;
-  default:
-    return RGX_QUANT_NONE;
-  }
-}
-
-xstrike_err_t rgx_node_array_free(rgx_node_array *arr) {
-  if (!arr || !arr->items) {
-    printk(KERN_INFO
-           "Failed to insert node, array not initialized or passing null");
-    return XSTRIKE_ERR_NOT_INIT;
-  }
-
-  printk(KERN_INFO "TODO:IMPLEMENT FREES.");
-
-  return XSTRIKE_SUCC;
-}
-
-rgx_node *rgx_node_array_pop(rgx_node_array *arr) {
-  if (!arr || !arr->items) {
-    printk(KERN_INFO
-           "Failed to insert node, array not initialized or passing null");
-    return NULL;
-  }
-
-  if (arr->len - 1 < 0) {
-    printk(KERN_INFO "Failed to rm last node, index underflow");
-    return NULL;
-  }
-
-  return arr->items[--arr->len];
-}
-
-xstrike_err_t rgx_node_array_add(rgx_node_array *arr, rgx_node *node) {
-  if (!arr || !arr->items) {
-    printk(KERN_INFO
-           "Failed to insert node, array not initialized or passing null");
-    return XSTRIKE_ERR_NOT_INIT;
-  }
-
-  if (!node) {
-    printk(KERN_INFO "Failed to insert node, node is null.");
-    return XSTRIKE_ERR_NOT_INIT;
-  }
-
-  if (arr->len >= arr->size) {
-    arr->size *= 2;
-    arr->items =
-        krealloc_array(arr->items, arr->size, sizeof(rgx_node *), GFP_KERNEL);
-    if (!arr) {
-      printk(KERN_INFO "Failed to realloc rgx_node array.");
-      return XSTRIKE_ERR_MEM;
-    }
-  }
-
-  arr->items[arr->len++] = node;
-
-  return XSTRIKE_SUCC;
-}
-
-xstrike_err_t rgx_node_array_init(rgx_node_array *arr) {
-  if (!arr) {
-    printk(KERN_INFO "Failed to malloc for rgx_node_array.");
-    return XSTRIKE_ERR_MEM;
-  }
-
-  arr->items = kmalloc(sizeof(rgx_node *) * RGX_NODE_START_SIZE, GFP_KERNEL);
-
-  if (!arr) {
-    printk(KERN_INFO "Failed to malloc items rgx_node_array.");
-    return XSTRIKE_ERR_MEM;
-  }
-
-  arr->size = RGX_NODE_START_SIZE;
-  arr->len = 0;
-
-  return XSTRIKE_SUCC;
-}
-
-rgx_node *rgx_node_init() {
-  rgx_node *node = kmalloc(sizeof(rgx_node), GFP_KERNEL);
-  if (!node) {
-    printk(KERN_INFO "Failed to malloc for rgx_node.");
-  }
-
-  node->type = RGX_TYPE_SEQ;
-  node->quant = RGX_QUANT_NONE;
-  node->len = 0;
-  node->str = NULL;
-  node->father = NULL;
-  return node;
 }
 
 xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
@@ -330,4 +237,123 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
   }
 
   return XSTRIKE_SUCC;
+}
+
+xstrike_err_t xstrike_regex_match(struct FileData *pdata, rgx_node *head) {
+  if (!head) {
+    printk(KERN_INFO "Regex pattern is NULL");
+    return XSTRIKE_ERR_NULLPTR;
+  }
+
+  if (head->type == RGX_TYPE_SEQ && head->body.len < 1) {
+    printk(KERN_INFO "Regex pattern is missing.");
+    return XSTRIKE_ERR_MISSING_PATTERN;
+  }
+
+  rgx_node *rnode = head;
+
+  while (true) {
+  }
+
+  return XSTRIKE_SUCC;
+}
+
+bool rgx_recursive(const char *data, const u64 len, u64 *idx,
+                   const rgx_node *rnode) {
+  u64 cidx = *idx;
+  bool res = true;
+  const enum rgx_quantifiers quant = rnode->quant;
+
+  if (!rnode) {
+    printk(KERN_INFO "Regex pattern is NULL during recursion.");
+    return false;
+  }
+
+  switch (rnode->type) {
+  case RGX_TYPE_SEQ: {
+    if (rnode->body.len < 1) {
+      printk(KERN_INFO "Missing body from seq");
+      res = false;
+      break;
+    }
+
+    for (size_t i = 0; i < rnode->body.len; i++) {
+      res = rgx_recursive(data, len, idx, rnode->body.items[i]);
+      if (!res) {
+        break;
+      }
+    }
+    break;
+  }
+  case RGX_TYPE_COND: {
+    if (rnode->body.len < 2) {
+      printk(KERN_INFO "Missing condition");
+      res = false;
+      break;
+    }
+
+    res = rgx_recursive(data, len, idx, rnode->body.items[0]);
+    if (!res) {
+      res = rgx_recursive(data, len, idx, rnode->body.items[1]);
+    }
+    break;
+  }
+  case RGX_TYPE_GROUP: {
+    if (rnode->body.len < 1) {
+      printk(KERN_INFO "Missing body from group");
+      res = false;
+      break;
+    }
+
+    const u64 len = rnode->body.len;
+    bool prev = false;
+    u64 pidx = cidx;
+
+    do {
+      for (size_t i = 0; i < len; i++) {
+        res = rgx_recursive(data, len, &cidx, rnode->body.items[i]);
+        if (!res) {
+          break;
+        }
+      }
+
+      prev |= res;
+      if (res) {
+        pidx = cidx;
+      }
+    } while (!(quant == RGX_QUANT_NONE || quant == RGX_QUANT_QUES) && res);
+
+    res = rgx_quant_rules(quant, res, prev);
+    cidx = pidx;
+    break;
+  }
+
+  case RGX_TYPE_LITERAL:
+  case RGX_TYPE_SPEC_LITERAL: {
+    const u64 len = rnode->len;
+    const char *literal = rnode->str;
+    u64 pidx = cidx;
+    bool prev = false;
+
+    do {
+      for (u64 i = 0; i < len; i++) {
+        res = literal[i] != data[cidx];
+        if (!res) {
+          break;
+        }
+        cidx++;
+      }
+      prev |= res;
+      if (res) {
+        pidx = cidx;
+      }
+    } while (!(quant == RGX_QUANT_NONE || quant == RGX_QUANT_QUES) && res);
+
+    res = rgx_quant_rules(quant, res, prev);
+    cidx = pidx;
+    break;
+  }
+  }
+
+  return res;
 }

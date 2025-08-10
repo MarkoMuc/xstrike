@@ -11,6 +11,8 @@
 !src/xstrike.h
 !src/xstrike_ioctl.h
 !src/xstrike_types.h
+!src/regex_types.h
+!src/regex_types.c
 !src/regex.h
 !src/regex.c
 !tests/test.rs

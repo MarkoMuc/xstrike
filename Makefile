@@ -1,6 +1,6 @@
 KDIR := ./denv/linux-6.15.8
 obj-m := xstrike.o
-xstrike-objs := src/xstrike.o src/regex.o
+xstrike-objs := src/xstrike.o src/regex.o src/regex_types.o
 
 all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules

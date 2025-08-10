@@ -11,7 +11,7 @@ static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
   // if (fdata->processed == false) {
   //   fdata->processed = true;
   // }
-
+  xstrike_regex_match(fdata, NULL);
   const size_t bytes_to_copy = min(fdata->count - *f_pos, count);
   const u64 moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
 
@@ -203,4 +203,6 @@ static void __exit xstrike_exit(void) {
 module_init(xstrike_init);
 module_exit(xstrike_exit);
 
+MODULE_AUTHOR("MZM");
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Regex engine in the form of a character device module.");
