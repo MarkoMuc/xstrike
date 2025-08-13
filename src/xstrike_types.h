@@ -22,7 +22,7 @@ typedef enum xstrike_err xstrike_err_t;
 struct FileData {
   struct rgx_pattern rules;
   char *data;
-  size_t count;
+  size_t len;
   size_t size;
   u64 id;
   bool processed;

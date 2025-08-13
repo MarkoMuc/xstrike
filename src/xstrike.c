@@ -11,8 +11,16 @@ static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
   // if (fdata->processed == false) {
   //   fdata->processed = true;
   // }
-  xstrike_regex_match(fdata, NULL);
-  const size_t bytes_to_copy = min(fdata->count - *f_pos, count);
+
+  if (fdata->processed == false) {
+    char *res;
+    xstrike_regex_match(fdata, NULL, &res);
+    if (fdata->processed == false) {
+      fdata->processed = true;
+    }
+  }
+
+  const size_t bytes_to_copy = min(fdata->len - *f_pos, count);
   const u64 moved = copy_to_user(buf, fdata->data + *f_pos, bytes_to_copy);
 
   if (moved != 0) {
@@ -28,20 +36,20 @@ static ssize_t xstrike_write(struct file *file, const char __user *buf,
                              size_t count, loff_t *f_pos) {
   struct FileData *fdata = (struct FileData *)file->private_data;
 
-  if (fdata->size - fdata->count < count) {
+  if (fdata->size - fdata->len < count) {
     u64 frac = count / fdata->size;
     fdata->size += (frac > 0 ? frac : 1) * fdata->size;
     krealloc_array(fdata->data, fdata->size, sizeof(char), GFP_KERNEL);
   }
 
-  const u64 moved = copy_from_user(fdata->data + fdata->count, buf, count);
+  const u64 moved = copy_from_user(fdata->data + fdata->len, buf, count);
 
   if (moved != 0) {
     printk(KERN_INFO "xstrike: Could not read from the user\n");
     return 0;
   }
 
-  fdata->count += count;
+  fdata->len += count;
   // *f_pos += count;
 
   return count;
@@ -62,7 +70,7 @@ static loff_t xstrike_llseek(struct file *file, loff_t offset, int whence) {
     new_pos = *(&file->f_pos) + offset;
     break;
   case SEEK_END:
-    new_pos = fdata->count + offset;
+    new_pos = fdata->len + offset;
     break;
   default:
     return -EINVAL;
@@ -71,7 +79,7 @@ static loff_t xstrike_llseek(struct file *file, loff_t offset, int whence) {
   if (new_pos < 0 || new_pos > fdata->size) {
     printk(KERN_WARNING "xstrike: llseek: Invalid seek position: %lld (data "
                         "count: %zu, allocated size: %zu)\n",
-           new_pos, fdata->count, fdata->size);
+           new_pos, fdata->len, fdata->size);
     return -EINVAL;
   }
 
@@ -84,7 +92,7 @@ static int xstrike_open(struct inode *inode, struct file *file) {
 
   struct FileData *fdata = file->private_data;
   fdata->id = gen_id();
-  fdata->count = 0;
+  fdata->len = 0;
   fdata->processed = false;
   fdata->size = START_SIZE;
   fdata->data = kmalloc(sizeof(char) * START_SIZE, GFP_KERNEL);

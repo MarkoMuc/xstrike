@@ -239,7 +239,8 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
   return XSTRIKE_SUCC;
 }
 
-xstrike_err_t xstrike_regex_match(struct FileData *pdata, rgx_node *head) {
+xstrike_err_t xstrike_regex_match(struct FileData *pdata, rgx_node *head,
+                                  char **result) {
   if (!head) {
     printk(KERN_INFO "Regex pattern is NULL");
     return XSTRIKE_ERR_NULLPTR;
@@ -252,8 +253,8 @@ xstrike_err_t xstrike_regex_match(struct FileData *pdata, rgx_node *head) {
 
   rgx_node *rnode = head;
 
-  while (true) {
-  }
+  u64 idx = 0;
+  rgx_recursive(pdata->data, pdata->len, &idx, head);
 
   return XSTRIKE_SUCC;
 }
@@ -285,6 +286,35 @@ bool rgx_recursive(const char *data, const u64 len, u64 *idx,
     }
     break;
   }
+
+  case RGX_TYPE_CHARSET: {
+    const u64 charset_len = rnode->len;
+    const char *charset = rnode->str;
+    u64 pidx = cidx;
+    bool prev = false;
+
+    while (cidx < len) {
+      const char c = data[cidx];
+      do {
+        for (u64 i = 0; i < charset_len; i++) {
+          res = charset[i] == c;
+          if (!res) {
+            break;
+          }
+          cidx++;
+        }
+        prev |= res;
+        if (res) {
+          pidx = cidx;
+        }
+      } while (!(quant == RGX_QUANT_NONE || quant == RGX_QUANT_QUES) && res);
+    }
+
+    res = rgx_quant_rules(quant, res, prev);
+    cidx = pidx;
+    break;
+  }
+
   case RGX_TYPE_COND: {
     if (rnode->body.len < 2) {
       printk(KERN_INFO "Missing condition");
@@ -305,12 +335,12 @@ bool rgx_recursive(const char *data, const u64 len, u64 *idx,
       break;
     }
 
-    const u64 len = rnode->body.len;
+    const u64 group_len = rnode->body.len;
     bool prev = false;
     u64 pidx = cidx;
 
     do {
-      for (size_t i = 0; i < len; i++) {
+      for (size_t i = 0; i < group_len && cidx < len; i++) {
         res = rgx_recursive(data, len, &cidx, rnode->body.items[i]);
         if (!res) {
           break;
@@ -321,6 +351,10 @@ bool rgx_recursive(const char *data, const u64 len, u64 *idx,
       if (res) {
         pidx = cidx;
       }
+
+      if (cidx < len) {
+        break;
+      }
     } while (!(quant == RGX_QUANT_NONE || quant == RGX_QUANT_QUES) && res);
 
     res = rgx_quant_rules(quant, res, prev);
@@ -330,22 +364,28 @@ bool rgx_recursive(const char *data, const u64 len, u64 *idx,
 
   case RGX_TYPE_LITERAL:
   case RGX_TYPE_SPEC_LITERAL: {
-    const u64 len = rnode->len;
+    const u64 literal_len = rnode->len;
     const char *literal = rnode->str;
     u64 pidx = cidx;
     bool prev = false;
 
     do {
-      for (u64 i = 0; i < len; i++) {
-        res = literal[i] != data[cidx];
+      u64 i = 0;
+      for (; i < literal_len && cidx < len; i++) {
+        res = literal[i] == data[cidx];
         if (!res) {
           break;
         }
         cidx++;
       }
       prev |= res;
+
       if (res) {
         pidx = cidx;
+      }
+
+      if (i + 1 != literal_len && cidx >= len) {
+        break;
       }
     } while (!(quant == RGX_QUANT_NONE || quant == RGX_QUANT_QUES) && res);
 
@@ -355,5 +395,6 @@ bool rgx_recursive(const char *data, const u64 len, u64 *idx,
   }
   }
 
+  *idx = cidx;
   return res;
 }
