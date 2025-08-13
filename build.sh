@@ -4,6 +4,7 @@ KDIR_PATH=./denv/linux-6.15.8/
 MUSL_GCC=~/Software/musl-cross-make/output/bin/x86_64-linux-musl-gcc
 
 make -C "$KDIR_PATH"  M=$(pwd) || exit 1;
+ctags -R src/ --c-kinds=+p -I src --extras=+q || exit 1;
 
 $MUSL_GCC -static -o ./tests/test-dev ./tests/test.c || exit 1;
 
