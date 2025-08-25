@@ -24,11 +24,13 @@ This is a short guide on how to build and run a Linux/BusyBox system in QEMU.
     - Turn on `Kernel support for ELF binaries` and `Kernel support for scripts starting with #!`.
     - Turn on `Enable loadable module support` and `Module unloading`.
     - Turn on `sysfs` and `proc` support.
+    - Turn on  `Maintain a devtmpfs filesystem  to mount at /dev` and `Automount devtmpfs at /dev, after the kernel mounted on the rootfs`.
     - Turn on `Rely on the toolchain's implicit default DWARF version` under `DEBUF_INFO_DWARF_TOOLCHAIN_DEFAULT`.
     - Turn on `CONFIG_GDB_SCRIPTS`.
 4. Use `make -j$(nproc)` to compile the kernel image, which can be found in `linux-6.15.8/arch/x86/bzImage`.
 5. Use `make scripts_gdb`.
 6. On `linux-6.15.8` the `gdb` scripts need to be patches with the patch `./gdb.patch`, more information can be found here: https://lkml.org/lkml/2025/5/31/383
+7. The compiled kernel image can be found in `arch/x86/bzImage`.
 
 ### BusyBox
 
@@ -61,7 +63,7 @@ exec /bin/sh
 5. Start the system in `qemu` with:
 
 ```BASH
-qemu-system-x86_64 -s -S -kernel ./linux-6.15.8/arch/x86/boot/bzImage -nographic -append 'console=ttyS0 loglevel=7' -initrd initramfs.cpio.gz
+qemu-system-x86_64 -kernel ./linux-6.15.8/arch/x86/boot/bzImage -nographic -append 'console=ttyS0 loglevel=7' -initrd initramfs.cpio.gz
 ```
 
 ## Testing
@@ -70,7 +72,7 @@ qemu-system-x86_64 -s -S -kernel ./linux-6.15.8/arch/x86/boot/bzImage -nographic
    - A super basic Makefile just contains the following line `obj-m  := xstrike.o`
 2. Use `make -C ./denv/linux-6.15.8/ M=$(pwd)` to build the module.
 3. Move the `xstrike.ko` module into `initramfs` directory and compress it.
-4. Start the system in `qemu` and run `inmod xstrike.ko` to load and `rmmod xstrike.ko` to unload the module.
+4. Start the system in `qemu` and run `insmod xstrike.ko` to load and `rmmod xstrike.ko` to unload the module.
 5. Debugging: Start `gdb` with `gdb ./denv/linux/vmlinux` followed by `target remote localhost:1234` and add `-s -S` to the `qemu` command.
 6. To use debugging scripts your `gdb` arguments or setup script should look something like:
 
@@ -79,7 +81,6 @@ gdb -ex "add-auto-load-safe-path $KPATH/scripts/gdb/vmlinux-gdb.py" \
     -ex "source $KPATH/vmlinux-gdb.py" \
     -ex "target remote :1234" \
     -ex "lx-symbols"\
-    -ex "b xstrike_regex_builder"\
     -ex "c" \
     $KPATH/vmlinux
 ```
