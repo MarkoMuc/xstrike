@@ -41,22 +41,21 @@ xstrike_err_t rgx_find_report_error(const rgx_node *rnode) {
   switch (rnode->type) {
   case RGX_TYPE_LITERAL:
     printk(KERN_INFO "Literal is missing a closing \"");
-    return XSTRIKE_ERR_INVALID_RGX;
+    break;
   case RGX_TYPE_SPEC_LITERAL:
     printk(KERN_INFO "Special literal was not closed.");
-    return XSTRIKE_ERR_INVALID_RGX;
+    break;
   case RGX_TYPE_COND:
     printk(KERN_INFO "Condition is missing an operator %lu", rnode->body.len);
-    return XSTRIKE_ERR_INVALID_RGX;
+    break;
   case RGX_TYPE_GROUP:
     printk(KERN_INFO "Group is missing closing ) %lu", rnode->body.len);
-    return XSTRIKE_ERR_INVALID_RGX;
+    break;
   case RGX_TYPE_CHARSET:
     printk(KERN_INFO "Charset is missing closing ]");
-    return XSTRIKE_ERR_INVALID_RGX;
-  default:
-    return XSTRIKE_ERR_INVALID_RGX;
+    break;
   }
+  return XSTRIKE_ERR_INVALID_RGX;
 }
 
 static inline bool rgx_is_rule_opening(const char c) {
