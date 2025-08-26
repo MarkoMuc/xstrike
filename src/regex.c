@@ -67,7 +67,8 @@ bool rgx_node_replace_father(rgx_node *node) {
   return false;
 }
 
-xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
+xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
+                                    rgx_node **pattern) {
   const u64 len = arg->len;
   const char *pstr = arg->pattern;
 
@@ -233,14 +234,16 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg) {
 
   if (rnode->type == RGX_TYPE_COND) {
     printk(KERN_INFO "Failure due to an unclosed conditional.");
+    *pattern = NULL;
     return XSTRIKE_ERR_INVALID_RGX;
   }
 
+  *pattern = head;
   return XSTRIKE_SUCC;
 }
 
-xstrike_err_t xstrike_regex_match(struct FileData *pdata, rgx_node *head,
-                                  char **result) {
+xstrike_err_t xstrike_regex_match(struct FileData *pdata, char **result) {
+  const rgx_node *head = pdata->pattern;
   if (!head) {
     printk(KERN_INFO "Regex pattern is NULL");
     return XSTRIKE_ERR_NULLPTR;
@@ -250,8 +253,6 @@ xstrike_err_t xstrike_regex_match(struct FileData *pdata, rgx_node *head,
     printk(KERN_INFO "Regex pattern is missing.");
     return XSTRIKE_ERR_MISSING_PATTERN;
   }
-
-  rgx_node *rnode = head;
 
   u64 idx = 0;
   rgx_recursive(pdata->data, pdata->len, &idx, head);

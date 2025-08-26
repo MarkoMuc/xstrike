@@ -14,7 +14,7 @@ static ssize_t xstrike_read(struct file *file, char __user *buf, size_t count,
 
   if (fdata->processed == false) {
     char *res;
-    xstrike_regex_match(fdata, NULL, &res);
+    xstrike_regex_match(fdata, &res);
     if (fdata->processed == false) {
       fdata->processed = true;
     }
@@ -130,7 +130,7 @@ static long xstrike_ioctl(struct file *file, unsigned int cmd,
     return 0;
   }
 
-  ret = xstrike_regex_builder(&xstrike_arg);
+  ret = xstrike_regex_builder(&xstrike_arg, &fdata->pattern);
   if (ret != XSTRIKE_SUCC) {
     printk(KERN_INFO "xstrike: pattern is not valid.\n");
     return ret;
