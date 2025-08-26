@@ -3,6 +3,24 @@
 // TODO: how do I handle end of string situations?
 // maybe remove [ ] or "? rgx_node_add_quant works like that already
 // Illegal pattern
+static inline bool rgx_is_escape_char(const char second) {
+  switch (second) {
+  case 'n':
+  case 't':
+  case 'r':
+  case '0':
+  case '\\':
+  case '\'':
+  case '\"':
+  case 'a':
+  case 'b':
+  case 'f':
+  case 'v':
+    return true;
+  default:
+    return false;
+  }
+}
 
 static inline bool rgx_quant_rules(const enum rgx_quantifiers q, const bool res,
                                    const bool p) {
@@ -10,16 +28,47 @@ static inline bool rgx_quant_rules(const enum rgx_quantifiers q, const bool res,
          (q == RGX_QUANT_STAR) || (q == RGX_QUANT_QUES);
 }
 
-static bool rgx_is_rule(const char c) {
-  switch (c) {
-  case '(':
-  case '|':
-  case '[':
-  case '\"':
-    return true;
-  default:
-    return false;
+static inline bool rgx_check_pattern_end(u64 i, u64 len, const char *data) {
+  return (i + 1 == len) || data[i + 1] == '\0';
+}
+
+xstrike_err_t rgx_find_report_error(const rgx_node *rnode) {
+  if (rnode == NULL) {
+    printk(KERN_INFO "Error reporter received a NULL rgx_node");
+    return XSTRIKE_ERR_NULLPTR;
   }
+
+  switch (rnode->type) {
+  case RGX_TYPE_LITERAL:
+    printk(KERN_INFO "Literal is missing a closing \"");
+    return XSTRIKE_ERR_INVALID_RGX;
+  case RGX_TYPE_SPEC_LITERAL:
+    printk(KERN_INFO "Special literal was not closed.");
+    return XSTRIKE_ERR_INVALID_RGX;
+  case RGX_TYPE_COND:
+    printk(KERN_INFO "Condition is missing an operator %lu", rnode->body.len);
+    return XSTRIKE_ERR_INVALID_RGX;
+  case RGX_TYPE_GROUP:
+    printk(KERN_INFO "Group is missing closing ) %lu", rnode->body.len);
+    return XSTRIKE_ERR_INVALID_RGX;
+  case RGX_TYPE_CHARSET:
+    printk(KERN_INFO "Charset is missing closing ]");
+    return XSTRIKE_ERR_INVALID_RGX;
+  default:
+    return XSTRIKE_ERR_INVALID_RGX;
+  }
+}
+
+static inline bool rgx_is_rule_opening(const char c) {
+  return c == '(' || c == '[' || c == '|' || c == '"';
+}
+
+static inline bool rgx_is_rule_closing(const char c) {
+  return c == ')' || c == ']';
+}
+
+static inline bool rgx_is_rule(const char c) {
+  return rgx_is_rule_opening(c) || rgx_is_rule_closing(c);
 }
 
 static void rgx_node_add_quant(const char *pstr, rgx_node *rnode, u64 len,
@@ -76,7 +125,7 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
   u64 slen = 0;
 
   char prev = 0;
-  bool escaped = false;
+  // bool escaped = false;
   rgx_node *head = rgx_node_init();
   rgx_node *rnode = head;
 
@@ -89,16 +138,10 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
     }
 
     slen++;
-    escaped = false;
-
-    if (prev == '\\' && c != '\\') {
-      escaped = true;
-      i++;
-    }
 
     switch (rnode->type) {
     case RGX_TYPE_LITERAL: {
-      if (c == '\"') {
+      if (c == '\"' && pstr[i - 1] != '\\') {
         // printk(KERN_INFO "\"");
         rnode->len = slen;
         rgx_node_add_quant(pstr, rnode, len, &i);
@@ -110,11 +153,25 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
     }
 
     case RGX_TYPE_SPEC_LITERAL: {
-      if (rgx_is_rule(c)) {
+      if (c == '\\' && !rgx_check_pattern_end(i, len, pstr)) {
+        const char snd = pstr[i + 1];
+        if (!rgx_is_rule(snd) && !rgx_is_escape_char(snd)) {
+          // TODO: Do I need to null anything here?
+          printk(KERN_INFO
+                 "Invalid escaped character found in special literal.");
+          return XSTRIKE_ERR_INVALID_RGX;
+        }
+        i += 1;
+      } else if (rgx_is_rule_opening(c) ||
+                 rgx_check_pattern_end(i, len, pstr) || c == ' ' || c == '\t') {
         rnode->len = slen;
+        // TODO: special literals cannot have quants
         rgx_node_add_quant(pstr, rnode, len, &i);
         rnode = rnode->father;
         continue;
+      } else if (rgx_is_rule_closing(c)) {
+        printk(KERN_INFO "Misplaced closing rule.");
+        return XSTRIKE_ERR_INVALID_RGX;
       }
 
       i++;
@@ -134,6 +191,8 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
     }
 
     case RGX_TYPE_SEQ: {
+      // FIXME: this should never be ), pretty sure this only finished if | is
+      // found?
       if (c == ')') {
         while (rnode->father && rnode->type != RGX_TYPE_GROUP) {
           rnode = rnode->father;
@@ -143,6 +202,7 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
       break;
     }
     case RGX_TYPE_GROUP: {
+      // TODO: do I need to check for escape seq here?
       if (c == ')') {
         // printk(KERN_INFO ")");
         rgx_node_add_quant(pstr, rnode, len, &i);
@@ -150,6 +210,11 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
         i++;
         continue;
       }
+    case RGX_TYPE_COND: {
+      // TODO: TEST LITEARL | SEQ/GROUP, how does that logic workhere?
+      // I think we can just check if len == 2 here and finish it.
+      // Also might need to add if equal cond, len should be 2
+    }
     }
 
     default:
@@ -230,6 +295,10 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
     }
 
     i++;
+  }
+
+  if (rnode != head) {
+    return rgx_find_report_error(rnode);
   }
 
   if (rnode->type == RGX_TYPE_COND) {

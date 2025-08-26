@@ -20,4 +20,6 @@ xstrike_err_t xstrike_regex_match(struct FileData *pdata, char **result);
 
 bool rgx_recursive(const char *data, const u64 len, u64 *idx,
                    const rgx_node *rnode);
+
+xstrike_err_t rgx_find_report_error(const rgx_node *rnode);
 #endif
