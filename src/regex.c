@@ -3,8 +3,13 @@
 // TODO: how do I handle end of string situations?
 // maybe remove [ ] or "? rgx_node_add_quant works like that already
 // Illegal pattern
-static inline bool rgx_is_escape_char(const char second) {
-  switch (second) {
+
+static inline bool rgx_is_charset_special(const char c) {
+  return c == 's' || c == 'd' || c == 'w';
+}
+
+static inline bool rgx_is_escape_char(const char c) {
+  switch (c) {
   case 'n':
   case 't':
   case 'r':
@@ -53,6 +58,8 @@ xstrike_err_t rgx_find_report_error(const rgx_node *rnode) {
     break;
   case RGX_TYPE_CHARSET:
     printk(KERN_INFO "Charset is missing closing ]");
+    break;
+  default:
     break;
   }
   return XSTRIKE_ERR_INVALID_RGX;
@@ -178,8 +185,15 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
     }
 
     case RGX_TYPE_CHARSET: {
-      if (c == ']') {
-        // printk(KERN_INFO "]");
+      if (c == '\\' && !rgx_check_pattern_end(i, len, pstr)) {
+        const char snd = pstr[i + 1];
+        if (snd != '[' && snd != ']' && !rgx_is_charset_special(snd) &&
+            !rgx_is_escape_char(snd)) {
+          printk(KERN_INFO "Invalid escaped character found in character set.");
+          return XSTRIKE_ERR_INVALID_RGX;
+        }
+        i += 1;
+      } else if (c == ']') {
         rnode->len = slen;
         rgx_node_add_quant(pstr, rnode, len, &i);
         rnode = rnode->father;
@@ -201,7 +215,8 @@ xstrike_err_t xstrike_regex_builder(struct rgx_pattern *arg,
       break;
     }
     case RGX_TYPE_GROUP: {
-      // TODO: do I need to check for escape seq here?
+      // TODO: do I need to check for escape seq here -> I think not, should be
+      // picked up by literal or spec. literal.
       if (c == ')') {
         // printk(KERN_INFO ")");
         rgx_node_add_quant(pstr, rnode, len, &i);
